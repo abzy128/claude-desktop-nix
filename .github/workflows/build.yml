@@ -36,10 +36,15 @@ jobs:
       # glibc instead of the store's, which reports bogus failures. Unresolved
       # libraries already fail the build in autoPatchelfHook; running the
       # wrapper uses the store interpreter and checks the app actually starts.
+      #
+      # --no-sandbox is required only on the runner: GitHub's images restrict
+      # unprivileged user namespaces via AppArmor, so the namespace sandbox the
+      # wrapper normally selects is unavailable and Chromium aborts. NixOS
+      # leaves security.allowUserNamespaces on, so the shipped default is fine.
       - name: Smoke test
         run: |
           EXPECTED=$(sed -n 's/^  version = "\([^"]*\)";.*/\1/p' package.nix | head -1)
-          ACTUAL=$(./result/bin/claude-desktop --version)
+          ACTUAL=$(./result/bin/claude-desktop --no-sandbox --version)
           echo "expected: $EXPECTED, got: $ACTUAL"
           [ "$EXPECTED" = "$ACTUAL" ]
 

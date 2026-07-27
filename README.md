@@ -74,7 +74,10 @@ Run it by hand with:
   impossible inside the Nix store, so it is dropped and the wrapper passes
   `--disable-setuid-sandbox`. Chromium then uses its user-namespace sandbox,
   which works on NixOS as long as `security.allowUserNamespaces` is left at its
-  default of `true`.
+  default of `true`. On distros that restrict unprivileged user namespaces via
+  AppArmor (Ubuntu 23.10+, and GitHub Actions runners), no sandbox is available
+  and the app aborts on startup; pass `--no-sandbox` there if you accept losing
+  the sandbox.
 - **Not in nixpkgs.** As of nixpkgs unstable there is no `claude-desktop`
   attribute, which is why this flake exists.
 - **Beta.** Linux support for the desktop app is in beta upstream; Computer Use
