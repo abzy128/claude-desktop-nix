@@ -22,12 +22,27 @@ jobs:
         env:
           NIX_FIRST_BUILD_UID: 400
 
+      # Skipped on pull requests from forks, where secrets are unavailable.
+      - uses: cachix/cachix-action@v17
+        if: github.ref == 'refs/heads/main'
+        with:
+          name: claude-desktop-nix
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
+
       - name: Build claude-desktop
         run: nix build .#claude-desktop --print-build-logs
 
-      # A GUI Electron app has no meaningful headless smoke test; check instead
-      # that autoPatchelfHook left no unresolved libraries in the main binary.
-      - name: Check binary is fully patched
+      # Do not use ldd here: on a non-NixOS runner it resolves against the host
+      # glibc instead of the store's, which reports bogus failures. Unresolved
+      # libraries already fail the build in autoPatchelfHook; running the
+      # wrapper uses the store interpreter and checks the app actually starts.
+      - name: Smoke test
         run: |
-          ldd ./result/lib/claude-desktop/claude-desktop
-          ! ldd ./result/lib/claude-desktop/claude-desktop | grep -q "not found"
+          EXPECTED=$(sed -n 's/^  version = "\([^"]*\)";.*/\1/p' package.nix | head -1)
+          ACTUAL=$(./result/bin/claude-desktop --version)
+          echo "expected: $EXPECTED, got: $ACTUAL"
+          [ "$EXPECTED" = "$ACTUAL" ]
+
+      - name: Push to Cachix
+        if: github.ref == 'refs/heads/main'
+        run: nix build .#claude-desktop --json | jq -r '.[].outputs.out' | cachix push claude-desktop-nix

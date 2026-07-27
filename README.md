@@ -5,6 +5,20 @@ Nix flake for the [Claude desktop app on Linux](https://code.claude.com/docs/en/
 
 Supports `x86_64-linux` and `aarch64-linux`.
 
+## Binary cache
+
+Builds are pushed to Cachix, so you do not have to repack the ~160 MB `.deb`
+yourself. On NixOS:
+
+```nix
+nix.settings = {
+  substituters = [ "https://claude-desktop-nix.cachix.org" ];
+  trusted-public-keys = [
+    "claude-desktop-nix.cachix.org-1:Uxv0ZovJXGNbGiPghtJVuQTIRyPJt747pWLc495jyrs="
+  ];
+};
+```
+
 ## Try it
 
 ```sh
