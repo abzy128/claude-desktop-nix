@@ -51,7 +51,9 @@ app tracks its releases the same way the rest of your system does.
 The app does not self-update on Linux, and Anthropic ships it through an apt
 repository that NixOS cannot consume. Instead, a
 [scheduled workflow](.github/workflows/update.yml) checks the repository index
-hourly and opens an auto-merging PR when a new version appears.
+hourly. When a new version appears it bumps the pins, builds and smoke-tests the
+result, and only then opens an auto-merging PR — so a version with bad hashes or
+a broken dependency fails the workflow instead of reaching `main`.
 
 That index publishes a SHA256 for every package, so `scripts/update.sh` reads
 hashes straight out of it rather than downloading ~160 MB per architecture to

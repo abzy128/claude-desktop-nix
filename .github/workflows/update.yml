@@ -30,6 +30,13 @@ jobs:
           extra_nix_config: |
             experimental-features = nix-command flakes
             access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+        env:
+          NIX_FIRST_BUILD_UID: 400
+
+      - uses: cachix/cachix-action@v17
+        with:
+          name: claude-desktop-nix
+          authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
 
       - name: Check for new version
         id: check
@@ -54,23 +61,41 @@ jobs:
             echo "update_needed=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # Rewrites package.nix and flake.lock, then builds, so a version whose
+      # hashes or dependencies are broken fails here and never reaches a PR.
       - name: Update version
         if: steps.check.outputs.update_needed == 'true'
         run: ./scripts/update.sh --version "${{ steps.check.outputs.new_version }}"
+
+      # Same check as build.yml, repeated because this job is the only thing
+      # that verifies the bump. A PR opened with GITHUB_TOKEN does not trigger
+      # build.yml, so auto-merge would otherwise land an unbuilt version -- and
+      # the resulting push to main is also by GITHUB_TOKEN, so build.yml does
+      # not run there either. Verifying before the PR is opened keeps the merge
+      # safe without needing a PAT.
+      # See build.yml for why --no-sandbox is needed on the runner.
+      - name: Smoke test
+        if: steps.check.outputs.update_needed == 'true'
+        run: |
+          EXPECTED="${{ steps.check.outputs.new_version }}"
+          ACTUAL=$(./result/bin/claude-desktop --no-sandbox --version)
+          echo "expected: $EXPECTED, got: $ACTUAL"
+          [ "$EXPECTED" = "$ACTUAL" ]
 
       - name: Create Pull Request
         if: steps.check.outputs.update_needed == 'true'
         id: create-pr
         uses: peter-evans/create-pull-request@v8
         with:
-          # Configure UPDATE_TOKEN as a PAT/App token if automated PRs should trigger CI.
-          token: ${{ secrets.UPDATE_TOKEN || secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore: update claude-desktop to version ${{ steps.check.outputs.new_version }}"
           title: "chore: update claude-desktop to version ${{ steps.check.outputs.new_version }}"
           body: |
             Updates claude-desktop from `${{ steps.check.outputs.current_version }}` to `${{ steps.check.outputs.new_version }}`.
 
-            This PR was generated automatically.
+            Built and smoke-tested in
+            [the run that opened this PR](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            before it was created.
           branch: update-claude-desktop-${{ steps.check.outputs.new_version }}
           delete-branch: true
           labels: |
@@ -80,5 +105,9 @@ jobs:
       - name: Enable Auto-Merge
         if: steps.check.outputs.update_needed == 'true' && steps.create-pr.outputs.pull-request-number
         env:
-          GH_TOKEN: ${{ secrets.UPDATE_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh pr merge ${{ steps.create-pr.outputs.pull-request-number }} --auto --squash --delete-branch
+
+      - name: Push to Cachix
+        if: steps.check.outputs.update_needed == 'true'
+        run: nix build .#claude-desktop --json | jq -r '.[].outputs.out' | cachix push claude-desktop-nix
