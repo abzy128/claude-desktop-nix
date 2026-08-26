@@ -39,16 +39,16 @@
 }:
 
 let
-  version = "1.37937.0";
+  version = "1.37937.1";
 
   platformMap = {
     "x86_64-linux" = {
       debArch = "amd64";
-      hash = "sha256-mc64ggSqtJsTiNZ3P+YCVby4QCzJZOGi12fYHkLwJ5A=";
+      hash = "sha256-ZrvGHdBGS1UMTWOBJSARnoNEtGJUHeRHlzUriRiEL08=";
     };
     "aarch64-linux" = {
       debArch = "arm64";
-      hash = "sha256-RpJlA1XEeggvZOd4+fL9NK69s/qKuUO9Kcoz31d2H9Y=";
+      hash = "sha256-wUgsOU0vPvQcw3oROR+ZmAtY7rW1OJFSSZw4dHiaB/c=";
     };
   };
 
